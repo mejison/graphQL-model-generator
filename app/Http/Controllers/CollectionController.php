@@ -4,17 +4,19 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Artisan;
+use GraphQL;
 
 class CollectionController extends Controller
 {
     public function createCollection(Request $request) {
         
-        $data = $request->only(['name']);
+        $data = $request->only(['name', 'fields']);
+        $data['fields'] = json_decode($data['fields']);
 
         $this->createMigration($data);
         $this->createModel($data);
-        $this->createQuery($data);
         $this->createType($data);
+        $this->createQuery($data);
     }
 
     public function createQuery($data) {
@@ -22,8 +24,30 @@ class CollectionController extends Controller
         
         $vars = [
             'class' => ucfirst($data['name']) . 'Query',
-            'fields' => ''
+            'type' => ucfirst($data['name']),
+            'fields' =>  "'id' => [
+                            'name' => 'id',
+                            'type' => Type::string()
+                        ],"
         ];
+
+        if ( ! empty($data['fields'])) {
+            foreach($data['fields'] as $field) {
+                $vars['fields'] .= "
+                    '{$field->name}' => [
+                        'name' => '{$field->name}',
+                        'type' => Type::{$field->type}(),
+                    ],
+                ";
+            }
+        }
+
+        $vars['fields'] .= "
+                    'created_at' => [
+                        'name' => 'created_at',
+                        'type' => Type::string()
+                    ],
+                ";
 
         $query = preg_replace_callback('/\{\{(\w+)\}\}/', function($matches) use ($vars) {
             return $vars[end($matches)];
@@ -31,26 +55,54 @@ class CollectionController extends Controller
 
         file_put_contents(app_path() . '/GraphQL/Query/' . $vars['class']. '.php' , $query);
 
-        GraphQL::addSchema($vars['class'], [
+        GraphQL::addSchema('default', [
             'query' => [
-                'users' => 'App\GraphQL\Query\\' . $vars['class']. '.php'
+                $data['name'] => "App/GraphQL/Query/" . $vars['class']
             ]
         ]);
     }
 
     public function createType($data) {
+        $query = file_get_contents(app_path() . '/Stubs/type.stub');
+        
+        $vars = [
+            'class' => ucfirst($data['name']) . 'Type',
+            'fields' => ''
+        ];
 
+        if ( ! empty($data['fields'])) {
+            foreach($data['fields'] as $field) {
+                $vars['fields'] .= "
+                    '{$field->name}' => [
+                        'type' => Type::{$field->type}(),
+                        'description' => ''
+                    ],
+                ";
+            }
+        }
+
+        $query = preg_replace_callback('/\{\{(\w+)\}\}/', function($matches) use ($vars) {
+            return $vars[end($matches)];
+        }, $query);
+
+        file_put_contents(app_path() . '/GraphQL/Type/' . $vars['class']. '.php' , $query);
+
+        GraphQL::addType("App/GraphQL/Type/" . $vars['class'], ucfirst($data['name']));
     }
 
     public function createModel($data) {
         $model = file_get_contents(app_path() . '/Stubs/model.stub');
-        
+
         $vars = [
             'namespace' => 'App',
             'class' => ucfirst($data['name']),
             'table' => $data['name'],
             'fillable' => ''
         ];
+
+        if ( ! empty($data['fields'])) {
+            $data['fields'] = "'" . implode(collect($data['fields'])->pluck('name')->toArray(), "', '") . "'";
+        }
 
         $model = preg_replace_callback('/\{\{(\w+)\}\}/', function($matches) use ($vars) {
             return $vars[end($matches)];
@@ -66,6 +118,10 @@ class CollectionController extends Controller
             'table_name' => $data['name'],
             'fields' => '',
         ];
+
+        foreach($data['fields'] as $field) {
+            $vars['fields'] .= "\$table->" . $field->type . "('" . $field->name . "');";
+        }
         
         $migration = preg_replace_callback('/\{\{(\w+)\}\}/', function($matches) use ($vars) {
             return $vars[end($matches)];

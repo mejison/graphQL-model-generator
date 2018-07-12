@@ -1,22 +1,22 @@
 <?php
 
-namespace DummyNamespace;
+namespace App\GraphQL\Query;
 
-use Folklore\GraphQL\Support\Query;
-use GraphQL\Type\Definition\ResolveInfo;
-use GraphQL\Type\Definition\Type;
 use GraphQL;
+use GraphQL\Type\Definition\Type;
+use Folklore\GraphQL\Support\Query;
+use App\{{type}};
 
 class {{class}} extends Query
 {
     protected $attributes = [
-        'name' => 'DummyQuery',
+        'name' => '{{class}}',
         'description' => 'A query'
     ];
 
     public function type()
     {
-        return Type::listOf(Type::string());
+        return Type::listOf(GraphQL::type('{{type}}'));
     }
 
     public function args()
@@ -26,8 +26,17 @@ class {{class}} extends Query
         ];
     }
 
-    public function resolve($root, $args, $context, ResolveInfo $info)
+    public function resolve($root, $args)
     {
-        return [];
+       $query = {{type}}::query();
+        foreach($args as $key => $value) {
+            $query->where($key, $value);
+        }
+        
+        if ( ! empty($args)) {
+            return $query->get();
+        }
+
+        return {{type}}::all();
     }
 }
