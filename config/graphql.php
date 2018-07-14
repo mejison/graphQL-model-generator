@@ -123,9 +123,7 @@ return [
      */
     'schemas' => [
         'default' => [
-            'query' => [
-                'users' => 'App\GraphQL\Query\UsersQuery'
-            ],
+            'query' => parse_ini_file(base_path() . "/graphql.ini", true)['querys'],
             'mutation' => [
                 'updateUserPassword' => 'App\GraphQL\Mutation\UpdateUserPasswordMutation',
                 'createUserMutation' => 'App\GraphQL\Mutation\CreateUserMutation',
@@ -181,9 +179,7 @@ return [
      *     'App\GraphQL\Type\UserType'
      * ]
      */
-    'types' => [
-        'User' => 'App\GraphQL\Type\UserType',
-    ],
+    'types' => parse_ini_file(base_path() . "/graphql.ini", true)['types'],
 
     /*
      * This callable will receive all the Exception objects that are caught by GraphQL.
