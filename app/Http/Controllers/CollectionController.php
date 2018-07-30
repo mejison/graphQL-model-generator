@@ -11,7 +11,7 @@ class CollectionController extends Controller
     public function createCollection(Request $request) {
         
         $data = $request->only(['name', 'fields']);
-        $data['fields'] = json_decode($data['fields']);
+        $data['fields'] = json_decode(collect($data['fields'])->toJson());
 
         $this->createMigration($data);
         $this->createModel($data);
